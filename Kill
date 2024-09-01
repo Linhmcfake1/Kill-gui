@@ -1,0 +1,210 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CommandGui"
+screenGui.Parent = playerGui
+
+-- Create Frame
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 300, 0, 250) -- Adjusted size to fit new buttons
+frame.Position = UDim2.new(0.5, -150, 0.5, -125)
+frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+frame.BackgroundTransparency = 0.5
+frame.Parent = screenGui
+
+-- Create UICorner for rounded corners (optional)
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = frame
+
+-- Create TextBox for command input
+local textBox = Instance.new("TextBox")
+textBox.Size = UDim2.new(1, -20, 0, 50)
+textBox.Position = UDim2.new(0, 10, 0, 10)
+textBox.PlaceholderText = "Enter player name or ID"
+textBox.Text = ""
+textBox.Parent = frame
+
+-- Create Button to execute the command
+local button = Instance.new("TextButton")
+button.Size = UDim2.new(1, -20, 0, 50)
+button.Position = UDim2.new(0, 10, 0, 70)
+button.Text = "Execute"
+button.Parent = frame
+
+-- Create Button to target all players
+local allButton = Instance.new("TextButton")
+allButton.Size = UDim2.new(1, -20, 0, 50)
+allButton.Position = UDim2.new(0, 10, 0, 130)
+allButton.Text = "Target All"
+allButton.Parent = frame
+
+-- Create Button to toggle loop kill all players
+local toggleAllButton = Instance.new("TextButton")
+toggleAllButton.Size = UDim2.new(1, -20, 0, 50)
+toggleAllButton.Position = UDim2.new(0, 10, 0, 190)
+toggleAllButton.Text = "Toggle Loop Kill All"
+toggleAllButton.Parent = frame
+
+-- Create Button to toggle GUI visibility
+local visibilityToggleButton = Instance.new("TextButton")
+visibilityToggleButton.Size = UDim2.new(0, 100, 0, 30) -- Smaller size
+visibilityToggleButton.Position = UDim2.new(1, -110, 0, 10) -- Positioned outside the frame
+visibilityToggleButton.Text = "Hide GUI"
+visibilityToggleButton.Parent = playerGui
+
+-- Create a `UIPadding` to prevent the draggable frame from interfering with the rest of the screen
+local padding = Instance.new("UIPadding")
+padding.PaddingLeft = UDim.new(0, 0)
+padding.PaddingRight = UDim.new(0, 0)
+padding.PaddingTop = UDim.new(0, 0)
+padding.PaddingBottom = UDim.new(0, 0)
+padding.Parent = frame
+
+-- Dragging functionality
+local dragInput, dragStart, startPos
+local function update(input)
+    local delta = input.Position - dragStart
+    frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+frame.InputBegan:Connect(function(input, gameProcessedEvent)
+    if gameProcessedEvent then return end
+    if input.UserInputType == Enum.UserInputType.Touch then
+        dragStart = input.Position
+        startPos = frame.Position
+        dragInput = input
+        dragInput.Changed:Connect(function()
+            if dragInput.UserInputState == Enum.UserInputState.End then
+                dragInput = nil
+            end
+        end)
+    end
+end)
+
+frame.InputChanged:Connect(function(input)
+    if input == dragInput then
+        update(input)
+    end
+end)
+
+-- Helper function to check if a player is in the friends list
+local function isFriend(player, friendsList)
+    for _, friend in ipairs(friendsList) do
+        if friend == player then
+            return true
+        end
+    end
+    return false
+end
+
+-- Define handlekill function
+local function handlekill(args, speaker)
+    if not firetouchinterest then
+        return notify('Incompatible Exploit', 'Your exploit does not support this command (missing firetouchinterest)')
+    end
+
+    local RS = RunService.RenderStepped
+    local Tool = speaker.Character and speaker.Character:FindFirstChildWhichIsA("Tool")
+    local Handle = Tool and Tool:FindFirstChild("Handle")
+
+    if not Tool or not Handle then
+        return notify("Handle Kill", "You need to hold a \"Tool\" that does damage on touch. For example, the default \"Sword\" tool.")
+    end
+
+    local targets = {}
+    if args[1] == "all" then
+        for _, v in ipairs(Players:GetPlayers()) do
+            if v ~= speaker then
+                table.insert(targets, v)
+            end
+        end
+    elseif args[1] == "nonfriends" then
+        local friends = player.Friendship:GetFriends()
+        for _, v in ipairs(Players:GetPlayers()) do
+            if v ~= speaker and not isFriend(v, friends) then
+                table.insert(targets, v)
+            end
+        end
+    else
+        for _, v in ipairs(getPlayer(args[1], speaker)) do
+            local p = Players:FindFirstChild(v) -- Assuming getPlayer returns player names or IDs
+            if p then
+                table.insert(targets, p)
+            end
+        end
+    end
+
+    for _, v in ipairs(targets) do
+        task.spawn(function()
+            while Tool and speaker.Character and v.Character and Tool.Parent == speaker.Character do
+                local Human = v.Character:FindFirstChildWhichIsA("Humanoid")
+                if not Human or Human.Health <= 0 or not v.Character.Parent then
+                    break
+                end
+                for _, v1 in ipairs(v.Character:GetChildren()) do
+                    if v1:IsA("BasePart") then
+                        pcall(function()
+                            firetouchinterest(Handle, v1, 1)
+                            task.wait() -- Wait for the RenderStepped
+                            firetouchinterest(Handle, v1, 0)
+                        end)
+                    end
+                end
+                task.wait(0.1) -- Short delay to prevent rapid execution
+            end
+            notify("Handle Kill Stopped!", v.Name .. " died/left or you unequipped the tool!")
+        end)
+    end
+end
+
+-- Button click event for individual player target
+button.MouseButton1Click:Connect(function()
+    local command = textBox.Text
+    if command and command ~= "" then
+        handlekill({command}, player)
+    end
+end)
+
+-- Button click event for all players target
+allButton.MouseButton1Click:Connect(function()
+    handlekill({"all"}, player)
+end)
+
+-- Toggle loop kill all players functionality
+local isLoopingAll = false
+local function loopKillAll()
+    while isLoopingAll do
+        handlekill({"all"}, player)
+        task.wait(5) -- Adjust wait time as needed
+    end
+end
+
+toggleAllButton.MouseButton1Click:Connect(function()
+    if not isLoopingAll then
+        isLoopingAll = true
+        toggleAllButton.Text = "Stop Loop Kill All"
+        task.spawn(loopKillAll)
+    else
+        isLoopingAll = false
+        toggleAllButton.Text = "Start Loop Kill All"
+    end
+end)
+
+-- Button click event for toggling GUI visibility
+local guiVisible = true
+visibilityToggleButton.MouseButton1Click:Connect(function()
+    if guiVisible then
+        screenGui.Enabled = false
+        visibilityToggleButton.Text = "Show GUI"
+    else
+        screenGui.Enabled = true
+        visibilityToggleButton.Text = "Hide GUI"
+    end
+    guiVisible = not guiVisible
+end)
