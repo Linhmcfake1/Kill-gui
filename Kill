@@ -16,7 +16,7 @@ screenGui.Name = "CommandGui"
 screenGui.ResetOnSpawn = false  -- Giữ GUI khi nhân vật chết
 screenGui.Parent = playerGui
 
--- Create Main Frame
+-- Create Frame
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 300, 0, 300) -- Adjusted size to fit new button
 frame.Position = UDim2.new(0.5, -150, 0.5, -150)
@@ -74,37 +74,6 @@ toggleButton.Text = "GUI"
 toggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 toggleButton.BackgroundTransparency = 0.5
 toggleButton.Parent = screenGui
-
--- Create Notification Frame
-local notificationFrame = Instance.new("Frame")
-notificationFrame.Size = UDim2.new(0, 300, 0, 100)
-notificationFrame.Position = UDim2.new(0.5, -150, 0.5, -50)
-notificationFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-notificationFrame.BackgroundTransparency = 0.7
-notificationFrame.Parent = screenGui
-
--- Create Notification Text
-local notificationText = Instance.new("TextLabel")
-notificationText.Size = UDim2.new(1, -40, 1, -40)
-notificationText.Position = UDim2.new(0, 20, 0, 20)
-notificationText.Text = "Script by linhmcfake linhmc_new"
-notificationText.TextColor3 = Color3.fromRGB(255, 255, 255)
-notificationText.BackgroundTransparency = 1
-notificationText.Parent = notificationFrame
-
--- Create Close Button for Notification
-local closeButton = Instance.new("TextButton")
-closeButton.Size = UDim2.new(0, 30, 0, 30)
-closeButton.Position = UDim2.new(1, -40, 0, 10)
-closeButton.Text = "X"
-closeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeButton.Parent = notificationFrame
-
--- Close notification when closeButton is clicked
-closeButton.MouseButton1Click:Connect(function()
-    notificationFrame.Visible = false
-end)
 
 -- Dragging functionality
 local dragInput, dragStart, startPos
@@ -223,3 +192,37 @@ local isLoopingAll = false
 local function loopKillAll()
     while isLoopingAll do
         handlekill({"all"}, player)
+        task.wait(5)
+    end
+end
+
+toggleAllButton.MouseButton1Click:Connect(function()
+    if not isLoopingAll then
+        isLoopingAll = true
+        toggleAllButton.Text = "Stop Loop Kill All"
+        task.spawn(loopKillAll)
+    else
+        isLoopingAll = false
+        toggleAllButton.Text = "Start Loop Kill All"
+    end
+end)
+
+-- Toggle loop kill non-friends functionality
+local isLoopingNonFriends = false
+local function loopKillNonFriends()
+    while isLoopingNonFriends do
+        handlekill({"nonfriends"}, player)
+        task.wait(5)
+    end
+end
+
+toggleNonFriendsButton.MouseButton1Click:Connect(function()
+    if not isLoopingNonFriends then
+        isLoopingNonFriends = true
+        toggleNonFriendsButton.Text = "Stop Loop Kill Non-Friends"
+        task.spawn(loopKillNonFriends)
+    else
+        isLoopingNonFriends = false
+        toggleNonFriendsButton.Text = "Start Loop Kill Non-Friends"
+    end
+end)
