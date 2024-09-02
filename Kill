@@ -4,15 +4,22 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
+-- Xóa GUI cũ nếu tồn tại
+local existingGui = playerGui:FindFirstChild("CommandGui")
+if existingGui then
+    existingGui:Destroy()
+end
+
 -- Create ScreenGui
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "CommandGui"
+screenGui.ResetOnSpawn = false  -- Giữ GUI khi nhân vật chết
 screenGui.Parent = playerGui
 
--- Create Frame
+-- Create Main Frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 250) -- Adjusted size to fit new buttons
-frame.Position = UDim2.new(0.5, -150, 0.5, -125)
+frame.Size = UDim2.new(0, 300, 0, 300) -- Adjusted size to fit new button
+frame.Position = UDim2.new(0.5, -150, 0.5, -150)
 frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 frame.BackgroundTransparency = 0.5
 frame.Parent = screenGui
@@ -51,20 +58,53 @@ toggleAllButton.Position = UDim2.new(0, 10, 0, 190)
 toggleAllButton.Text = "Toggle Loop Kill All"
 toggleAllButton.Parent = frame
 
--- Create Button to toggle GUI visibility
-local visibilityToggleButton = Instance.new("TextButton")
-visibilityToggleButton.Size = UDim2.new(0, 100, 0, 30) -- Smaller size
-visibilityToggleButton.Position = UDim2.new(1, -110, 0, 10) -- Positioned outside the frame
-visibilityToggleButton.Text = "Hide GUI"
-visibilityToggleButton.Parent = playerGui
+-- Create Button to toggle loop kill non-friends
+local toggleNonFriendsButton = Instance.new("TextButton")
+toggleNonFriendsButton.Size = UDim2.new(1, -20, 0, 50)
+toggleNonFriendsButton.Position = UDim2.new(0, 10, 0, 250)  -- Position below the loop kill all button
+toggleNonFriendsButton.Text = "Toggle Loop Kill Non-Friends"
+toggleNonFriendsButton.Parent = frame
 
--- Create a `UIPadding` to prevent the draggable frame from interfering with the rest of the screen
-local padding = Instance.new("UIPadding")
-padding.PaddingLeft = UDim.new(0, 0)
-padding.PaddingRight = UDim.new(0, 0)
-padding.PaddingTop = UDim.new(0, 0)
-padding.PaddingBottom = UDim.new(0, 0)
-padding.Parent = frame
+-- Create Toggle Button to hide/show GUI
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 50, 0, 50)
+toggleButton.Position = UDim2.new(1, -60, 1, -60)  -- Đặt gần nút nhảy
+toggleButton.AnchorPoint = Vector2.new(1, 1)
+toggleButton.Text = "GUI"
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+toggleButton.BackgroundTransparency = 0.5
+toggleButton.Parent = screenGui
+
+-- Create Notification Frame
+local notificationFrame = Instance.new("Frame")
+notificationFrame.Size = UDim2.new(0, 300, 0, 100)
+notificationFrame.Position = UDim2.new(0.5, -150, 0.5, -50)
+notificationFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+notificationFrame.BackgroundTransparency = 0.7
+notificationFrame.Parent = screenGui
+
+-- Create Notification Text
+local notificationText = Instance.new("TextLabel")
+notificationText.Size = UDim2.new(1, -40, 1, -40)
+notificationText.Position = UDim2.new(0, 20, 0, 20)
+notificationText.Text = "Script by linhmcfake linhmc_new"
+notificationText.TextColor3 = Color3.fromRGB(255, 255, 255)
+notificationText.BackgroundTransparency = 1
+notificationText.Parent = notificationFrame
+
+-- Create Close Button for Notification
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 30, 0, 30)
+closeButton.Position = UDim2.new(1, -40, 0, 10)
+closeButton.Text = "X"
+closeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.Parent = notificationFrame
+
+-- Close notification when closeButton is clicked
+closeButton.MouseButton1Click:Connect(function()
+    notificationFrame.Visible = false
+end)
 
 -- Dragging functionality
 local dragInput, dragStart, startPos
@@ -93,14 +133,17 @@ frame.InputChanged:Connect(function(input)
     end
 end)
 
+-- Toggle GUI visibility
+local guiVisible = true
+toggleButton.MouseButton1Click:Connect(function()
+    guiVisible = not guiVisible
+    frame.Visible = guiVisible
+    toggleButton.Text = guiVisible and "Hide GUI" or "Show GUI"
+end)
+
 -- Helper function to check if a player is in the friends list
-local function isFriend(player, friendsList)
-    for _, friend in ipairs(friendsList) do
-        if friend == player then
-            return true
-        end
-    end
-    return false
+local function isFriend(targetPlayer)
+    return player:IsFriendsWith(targetPlayer.UserId)
 end
 
 -- Define handlekill function
@@ -125,15 +168,14 @@ local function handlekill(args, speaker)
             end
         end
     elseif args[1] == "nonfriends" then
-        local friends = player.Friendship:GetFriends()
         for _, v in ipairs(Players:GetPlayers()) do
-            if v ~= speaker and not isFriend(v, friends) then
+            if v ~= speaker and not isFriend(v) then
                 table.insert(targets, v)
             end
         end
     else
         for _, v in ipairs(getPlayer(args[1], speaker)) do
-            local p = Players:FindFirstChild(v) -- Assuming getPlayer returns player names or IDs
+            local p = Players:FindFirstChild(v)
             if p then
                 table.insert(targets, p)
             end
@@ -151,12 +193,12 @@ local function handlekill(args, speaker)
                     if v1:IsA("BasePart") then
                         pcall(function()
                             firetouchinterest(Handle, v1, 1)
-                            task.wait() -- Wait for the RenderStepped
+                            task.wait()
                             firetouchinterest(Handle, v1, 0)
                         end)
                     end
                 end
-                task.wait(0.1) -- Short delay to prevent rapid execution
+                task.wait(0.1)
             end
             notify("Handle Kill Stopped!", v.Name .. " died/left or you unequipped the tool!")
         end)
@@ -181,30 +223,3 @@ local isLoopingAll = false
 local function loopKillAll()
     while isLoopingAll do
         handlekill({"all"}, player)
-        task.wait(5) -- Adjust wait time as needed
-    end
-end
-
-toggleAllButton.MouseButton1Click:Connect(function()
-    if not isLoopingAll then
-        isLoopingAll = true
-        toggleAllButton.Text = "Stop Loop Kill All"
-        task.spawn(loopKillAll)
-    else
-        isLoopingAll = false
-        toggleAllButton.Text = "Start Loop Kill All"
-    end
-end)
-
--- Button click event for toggling GUI visibility
-local guiVisible = true
-visibilityToggleButton.MouseButton1Click:Connect(function()
-    if guiVisible then
-        screenGui.Enabled = false
-        visibilityToggleButton.Text = "Show GUI"
-    else
-        screenGui.Enabled = true
-        visibilityToggleButton.Text = "Hide GUI"
-    end
-    guiVisible = not guiVisible
-end)
