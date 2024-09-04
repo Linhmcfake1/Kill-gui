@@ -4,7 +4,7 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Xóa GUI cũ nếu tồn tại
+-- Remove any existing GUI
 local existingGui = playerGui:FindFirstChild("CommandGui")
 if existingGui then
     existingGui:Destroy()
@@ -13,18 +13,18 @@ end
 -- Create ScreenGui
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "CommandGui"
-screenGui.ResetOnSpawn = false  -- Giữ GUI khi nhân vật chết
+screenGui.ResetOnSpawn = false
 screenGui.Parent = playerGui
 
 -- Create Frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 300) -- Adjusted size to fit new button
+frame.Size = UDim2.new(0, 300, 0, 300)
 frame.Position = UDim2.new(0.5, -150, 0.5, -150)
 frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 frame.BackgroundTransparency = 0.5
 frame.Parent = screenGui
 
--- Create UICorner for rounded corners (optional)
+-- UICorner for rounded corners (optional)
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(0, 10)
 corner.Parent = frame
@@ -37,38 +37,35 @@ textBox.PlaceholderText = "Enter player name or ID"
 textBox.Text = ""
 textBox.Parent = frame
 
--- Create Button to execute the command
+-- Create Buttons
 local button = Instance.new("TextButton")
 button.Size = UDim2.new(1, -20, 0, 50)
 button.Position = UDim2.new(0, 10, 0, 70)
 button.Text = "Execute"
 button.Parent = frame
 
--- Create Button to target all players
 local allButton = Instance.new("TextButton")
 allButton.Size = UDim2.new(1, -20, 0, 50)
 allButton.Position = UDim2.new(0, 10, 0, 130)
 allButton.Text = "Target All"
 allButton.Parent = frame
 
--- Create Button to toggle loop kill all players
 local toggleAllButton = Instance.new("TextButton")
 toggleAllButton.Size = UDim2.new(1, -20, 0, 50)
 toggleAllButton.Position = UDim2.new(0, 10, 0, 190)
 toggleAllButton.Text = "Toggle Loop Kill All"
 toggleAllButton.Parent = frame
 
--- Create Button to toggle loop kill non-friends
 local toggleNonFriendsButton = Instance.new("TextButton")
 toggleNonFriendsButton.Size = UDim2.new(1, -20, 0, 50)
-toggleNonFriendsButton.Position = UDim2.new(0, 10, 0, 250)  -- Position below the loop kill all button
+toggleNonFriendsButton.Position = UDim2.new(0, 10, 0, 250)
 toggleNonFriendsButton.Text = "Toggle Loop Kill Non-Friends"
 toggleNonFriendsButton.Parent = frame
 
 -- Create Toggle Button to hide/show GUI
 local toggleButton = Instance.new("TextButton")
 toggleButton.Size = UDim2.new(0, 50, 0, 50)
-toggleButton.Position = UDim2.new(1, -60, 1, -60)  -- Đặt gần nút nhảy
+toggleButton.Position = UDim2.new(1, -60, 1, -60)
 toggleButton.AnchorPoint = Vector2.new(1, 1)
 toggleButton.Text = "GUI"
 toggleButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
@@ -82,14 +79,12 @@ local function update(input)
     frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
 end
 
-frame.InputBegan:Connect(function(input, gameProcessedEvent)
-    if gameProcessedEvent then return end
-    if input.UserInputType == Enum.UserInputType.Touch then
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragStart = input.Position
         startPos = frame.Position
-        dragInput = input
-        dragInput.Changed:Connect(function()
-            if dragInput.UserInputState == Enum.UserInputState.End then
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
                 dragInput = nil
             end
         end)
@@ -97,7 +92,7 @@ frame.InputBegan:Connect(function(input, gameProcessedEvent)
 end)
 
 frame.InputChanged:Connect(function(input)
-    if input == dragInput then
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
         update(input)
     end
 end)
@@ -110,89 +105,80 @@ toggleButton.MouseButton1Click:Connect(function()
     toggleButton.Text = guiVisible and "Hide GUI" or "Show GUI"
 end)
 
--- Helper function to check if a player is in the friends list
+-- Helper function to check if a player is a friend
 local function isFriend(targetPlayer)
     return player:IsFriendsWith(targetPlayer.UserId)
 end
 
--- Define handlekill function
-local function handlekill(args, speaker)
+-- Handlekill function to handle killing players
+local function handlekill(targetType)
     if not firetouchinterest then
-        return notify('Incompatible Exploit', 'Your exploit does not support this command (missing firetouchinterest)')
+        warn('Incompatible Exploit', 'Your exploit does not support this command (missing firetouchinterest)')
+        return
     end
 
-    local RS = RunService.RenderStepped
-    local Tool = speaker.Character and speaker.Character:FindFirstChildWhichIsA("Tool")
+    local Tool = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
     local Handle = Tool and Tool:FindFirstChild("Handle")
 
     if not Tool or not Handle then
-        return notify("Handle Kill", "You need to hold a \"Tool\" that does damage on touch. For example, the default \"Sword\" tool.")
+        warn("Handle Kill", "You need to hold a \"Tool\" that does damage on touch.")
+        return
     end
 
     local targets = {}
-    if args[1] == "all" then
+    if targetType == "all" then
         for _, v in ipairs(Players:GetPlayers()) do
-            if v ~= speaker then
+            if v ~= player then
                 table.insert(targets, v)
             end
         end
-    elseif args[1] == "nonfriends" then
+    elseif targetType == "nonfriends" then
         for _, v in ipairs(Players:GetPlayers()) do
-            if v ~= speaker and not isFriend(v) then
+            if v ~= player and not isFriend(v) then
                 table.insert(targets, v)
-            end
-        end
-    else
-        for _, v in ipairs(getPlayer(args[1], speaker)) do
-            local p = Players:FindFirstChild(v)
-            if p then
-                table.insert(targets, p)
             end
         end
     end
 
-    for _, v in ipairs(targets) do
+    for _, targetPlayer in ipairs(targets) do
         task.spawn(function()
-            while Tool and speaker.Character and v.Character and Tool.Parent == speaker.Character do
-                local Human = v.Character:FindFirstChildWhichIsA("Humanoid")
-                if not Human or Human.Health <= 0 or not v.Character.Parent then
+            while Tool and player.Character and targetPlayer.Character and Tool.Parent == player.Character do
+                local targetHumanoid = targetPlayer.Character:FindFirstChildWhichIsA("Humanoid")
+                if not targetHumanoid or targetHumanoid.Health <= 0 or not targetPlayer.Character.Parent then
                     break
                 end
-                for _, v1 in ipairs(v.Character:GetChildren()) do
-                    if v1:IsA("BasePart") then
+                for _, part in ipairs(targetPlayer.Character:GetChildren()) do
+                    if part:IsA("BasePart") then
                         pcall(function()
-                            firetouchinterest(Handle, v1, 1)
-                            task.wait()
-                            firetouchinterest(Handle, v1, 0)
+                            firetouchinterest(Handle, part, 1)
+                            firetouchinterest(Handle, part, 0)
                         end)
                     end
                 end
-                task.wait(0.1)
+                RunService.Heartbeat:Wait() -- Sử dụng Heartbeat để không làm đơ chat
             end
-            notify("Handle Kill Stopped!", v.Name .. " died/left or you unequipped the tool!")
         end)
     end
 end
 
--- Button click event for individual player target
+-- Button click events
 button.MouseButton1Click:Connect(function()
     local command = textBox.Text
     if command and command ~= "" then
-        handlekill({command}, player)
+        handlekill(command)
     end
 end)
 
--- Button click event for all players target
 allButton.MouseButton1Click:Connect(function()
-    handlekill({"all"}, player)
+    handlekill("all")
 end)
 
--- Toggle loop kill all players functionality
+-- Toggle loop kill all players
 local isLoopingAll = false
 local function loopKillAll()
     while isLoopingAll do
-        handlekill({"all"}, player)
-        task.wait(5)
+        handlekill("all")
+        task.wait(2) -- Giảm thời gian chờ để tăng tốc độ vòng lặp
     end
 end
 
@@ -207,12 +193,12 @@ toggleAllButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Toggle loop kill non-friends functionality
+-- Toggle loop kill non-friends
 local isLoopingNonFriends = false
 local function loopKillNonFriends()
     while isLoopingNonFriends do
-        handlekill({"nonfriends"}, player)
-        task.wait(5)
+        handlekill("nonfriends")
+        task.wait(2) -- Giảm thời gian chờ để tăng tốc độ vòng lặp
     end
 end
 
